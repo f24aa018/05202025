@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -11,7 +12,7 @@ class TodoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(title: 'ToDo 外部保存', home: const TodoListPage());
+    return const MaterialApp(title: 'ToDo 外部保存', home: TodoListPage());
   }
 }
 
@@ -35,9 +36,6 @@ class _TodoListPageState extends State<TodoListPage> {
 
   Future<void> _setupFile() async {
     final directory = await getApplicationDocumentsDirectory();
-    // または外部に置きたいならこのようにもできる：
-    // final directory = Directory('C:/Users/あなたの名前/Documents');
-
     final path = '${directory.path}/todo_list.txt';
     _todoFile = File(path);
 
@@ -77,12 +75,44 @@ class _TodoListPageState extends State<TodoListPage> {
     });
   }
 
+  Future<void> _fetchFromWeb() async {
+    const host = 'baconipsum.com';
+    const path = '/api/?type=meat-and-filler&paras=1&format=text';
+
+    try {
+      var httpClient = HttpClient();
+      HttpClientRequest request = await httpClient.get(host, 80, path);
+      HttpClientResponse response = await request.close();
+
+      final value = await response.transform(utf8.decoder).join();
+      setState(() {
+        _controller.text = value;
+      });
+
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) => AlertDialog(
+            title: const Text("loaded!"),
+            content: const Text("get content from URI."),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error fetching data: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('ToDo 外部保存'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_download),
+            onPressed: _fetchFromWeb,
+          ),
           IconButton(
             icon: const Icon(Icons.delete_forever),
             onPressed: _todoItems.isEmpty ? null : _clearAll,
@@ -102,6 +132,8 @@ class _TodoListPageState extends State<TodoListPage> {
                       labelText: 'タスクを入力',
                       border: OutlineInputBorder(),
                     ),
+                    minLines: 1,
+                    maxLines: 5,
                   ),
                 ),
                 const SizedBox(width: 8),
